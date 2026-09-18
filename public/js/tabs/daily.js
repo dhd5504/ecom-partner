@@ -1,164 +1,140 @@
-/* ================================================================
-   daily.js — Tab Xu hướng: biểu đồ + bảng theo ngày
-   ================================================================ */
 'use strict';
+/* ── daily.js ── Daily table + chart ── */
 
-(function () {
-  let _chart = null;
+let _dailyChart = null;
 
-  window.loadDaily = async function () {
-    const el = document.getElementById('tab-daily');
-    el.innerHTML = window.loadingHtml();
-    try {
-      const data = await window.fetchApi('/api/metrics/daily?' + window.buildQuery());
-      if (!data) return;
-      if (!data.length) { el.innerHTML = window.emptyHtml(); return; }
+const DAILY_DATASETS = [
+  { label: 'Revenue',  key: 'revenue_vnd', color: '#8b5cf6', type: 'bar',  yAxisID: 'yLeft'  },
+  { label: 'Spent',    key: 'cost_vnd',    color: '#f43f5e', type: 'bar',  yAxisID: 'yLeft'  },
+  { label: 'Profit',   key: 'profit_vnd',  color: '#10b981', type: 'bar',  yAxisID: 'yLeft'  },
+  { label: 'ROI (%)',  key: 'roi',         color: '#eab308', type: 'line', yAxisID: 'yRight' },
+  { label: 'Clicks',   key: 'shopee_clicks',color: '#f97316',type: 'line', yAxisID: 'yRight'},
+  { label: 'Orders',   key: 'total_orders',color: '#22c55e', type: 'line', yAxisID: 'yRight' },
+  { label: 'Reduct',   key: 'reduct_vnd',  color: '#ef4444', type: 'line', yAxisID: 'yLeft', borderDash: [4,4] },
+];
 
-      el.innerHTML = `
-        <div class="chart-wrap">
-          <div class="chart-title">Xu hướng theo ngày</div>
-          <canvas id="daily-chart"></canvas>
-        </div>
-        <div class="table-wrap">
-          <div class="table-title">Chi tiết theo ngày</div>
-          <div class="table-scroll">
-            <table id="daily-table">
-              <thead>
-                <tr>
-                  <th style="text-align:left">Ngày</th>
-                  <th>Đơn</th>
-                  <th>Hủy</th>
-                  <th>S.Clicks</th>
-                  <th>Revenue</th>
-                  <th>Reduct</th>
-                  <th>Spent</th>
-                  <th>Profit</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-              <tfoot></tfoot>
-            </table>
-          </div>
-        </div>
-      `;
+async function loadDaily() {
+  document.getElementById('dailyLoading').classList.remove('hidden');
+  const tbody = document.getElementById('dailyBody');
+  const tfoot = document.getElementById('dailyFoot');
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-dim)"><i class="mdi mdi-loading mdi-spin"></i> Đang tải...</td></tr>';
+  tfoot.innerHTML = '';
 
-      const labels = data.map(d => {
-        const [, mm, dd] = d.date.split('-');
-        return `${dd}/${mm}`;
-      });
+  try {
+    const rows = await window.fetchApi('/api/metrics/daily?' + window.buildQuery());
+    document.getElementById('dailyLoading').classList.add('hidden');
+    if (!rows) return;
 
-      // Destroy previous chart if exists
-      if (_chart) { _chart.destroy(); _chart = null; }
+    _renderDailyChart(rows);
+    _renderDailyTable(rows, tbody, tfoot);
+  } catch (e) {
+    document.getElementById('dailyLoading').classList.add('hidden');
+    tbody.innerHTML = `<tr><td colspan="8" style="color:#f43f5e;padding:1rem">Lỗi: ${e.message}</td></tr>`;
+  }
+}
 
-      const ctx = document.getElementById('daily-chart').getContext('2d');
-      _chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [
-            {
-              label: 'Revenue',
-              data: data.map(d => d.revenue_vnd),
-              borderColor: '#22c55e',
-              backgroundColor: 'rgba(34,197,94,.08)',
-              tension: 0.3,
-              fill: true,
-            },
-            {
-              label: 'Spent',
-              data: data.map(d => d.cost_vnd),
-              borderColor: '#3b82f6',
-              backgroundColor: 'rgba(59,130,246,.08)',
-              tension: 0.3,
-              fill: true,
-            },
-            {
-              label: 'Profit',
-              data: data.map(d => d.profit_vnd),
-              borderColor: '#a855f7',
-              backgroundColor: 'rgba(168,85,247,.08)',
-              tension: 0.3,
-              fill: true,
-            },
-            {
-              label: 'Reduct',
-              data: data.map(d => d.reduct_vnd),
-              borderColor: '#ef4444',
-              backgroundColor: 'rgba(239,68,68,.05)',
-              tension: 0.3,
-              fill: false,
-              borderDash: [4, 4],
-            },
-          ],
+function _renderDailyChart(rows) {
+  const labels = rows.map(r => { const [,mm,dd] = r.date.split('-'); return `${dd}/${mm}`; });
+  if (_dailyChart) { _dailyChart.destroy(); _dailyChart = null; }
+  const ctx = document.getElementById('dailyChart').getContext('2d');
+
+  const activeSet = new Set([0, 1, 2, 3]);
+  document.querySelectorAll('.daily-chip').forEach(btn => {
+    // clear old event listeners
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    newBtn.addEventListener('click', () => {
+      const idx = +newBtn.dataset.metric;
+      newBtn.classList.toggle('active');
+      if (activeSet.has(idx)) activeSet.delete(idx); else activeSet.add(idx);
+      _dailyChart.data.datasets.forEach((ds, i) => { ds.hidden = !activeSet.has(i); });
+      _dailyChart.update();
+    });
+  });
+
+  _dailyChart = new Chart(ctx, {
+    data: {
+      labels,
+      datasets: DAILY_DATASETS.map((ds, i) => {
+        let rowData;
+        if (ds.key === 'roi') {
+          rowData = rows.map(r => r.cost_vnd > 0 ? ((r.revenue_vnd - r.cost_vnd - r.reduct_vnd) / r.cost_vnd * 100) : 0);
+        } else {
+          rowData = rows.map(r => r[ds.key]);
+        }
+        return {
+          type: ds.type,
+          label: ds.label,
+          data: rowData,
+          backgroundColor: ds.color + (ds.type === 'bar' ? '99' : ''),
+          borderColor: ds.color,
+          borderWidth: ds.type === 'line' ? 2 : 0,
+          pointRadius: ds.type === 'line' ? 3 : 0,
+          tension: 0.3,
+          borderDash: ds.borderDash,
+          yAxisID: ds.yAxisID,
+          hidden: !activeSet.has(i)
+        };
+      })
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { 
+          callbacks: { 
+            label: (c) => ` ${c.dataset.label}: ${c.dataset.label === 'ROI (%)' ? window.fmt.pct(c.raw) : (c.dataset.yAxisID === 'yRight' ? window.fmt.num(c.raw) : window.fmt.vndShort(c.raw))}` 
+          } 
         },
-        options: {
-          responsive: true,
-          interaction: { mode: 'index', intersect: false },
-          plugins: {
-            legend: { labels: { color: '#94a3b8', usePointStyle: true } },
-            tooltip: {
-              callbacks: {
-                label: (ctx) => ` ${ctx.dataset.label}: ${window.fmt.vndShort(ctx.raw)}`,
-              },
-            },
-          },
-          scales: {
-            x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
-            y: {
-              ticks: {
-                color: '#64748b',
-                callback: (v) => window.fmt.vndShort(v),
-              },
-              grid: { color: '#1e293b' },
-            },
-          },
-        },
-      });
+      },
+      scales: {
+        x: { ticks: { color: '#64748b' }, grid: { color: 'rgba(0,0,0,.05)' } },
+        yLeft:  { position: 'left',  ticks: { color: '#64748b', callback: v => window.fmt.vndShort(v) }, grid: { color: 'rgba(0,0,0,.05)' } },
+        yRight: { position: 'right', ticks: { color: '#f97316', callback: v => window.fmt.num(v) }, grid: { display: false } },
+      },
+    },
+  });
+}
 
-      // Table body
-      const tbody = document.querySelector('#daily-table tbody');
-      const tfoot = document.querySelector('#daily-table tfoot');
-      let totOrders = 0, totCancelled = 0, totClicks = 0;
-      let totRevenue = 0, totReduct = 0, totCost = 0, totProfit = 0;
+function _renderDailyTable(rows, tbody, tfoot) {
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-dim)">Không có dữ liệu</td></tr>';
+    return;
+  }
 
-      data.forEach(d => {
-        totOrders    += d.total_orders;
-        totCancelled += d.cancelled_orders;
-        totClicks    += d.shopee_clicks;
-        totRevenue   += d.revenue_vnd;
-        totReduct    += d.reduct_vnd;
-        totCost      += d.cost_vnd;
-        totProfit    += d.profit_vnd;
+  let totOrders = 0, totCancels = 0, totClicks = 0;
+  let totRev = 0, totReduct = 0, totCost = 0, totProfit = 0;
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${d.date}</td>
-          <td>${window.fmt.num(d.total_orders)}</td>
-          <td>${window.fmt.num(d.cancelled_orders)}</td>
-          <td>${window.fmt.num(d.shopee_clicks)}</td>
-          <td>${window.fmt.vnd(d.revenue_vnd)}</td>
-          <td>${window.fmt.vnd(d.reduct_vnd)}</td>
-          <td>${window.fmt.vnd(d.cost_vnd)}</td>
-          <td class="${window.profitClass(d.profit_vnd)}">${window.fmt.vnd(d.profit_vnd)}</td>
-        `;
-        tbody.appendChild(tr);
-      });
+  tbody.innerHTML = rows.map(r => {
+    totOrders  += r.total_orders;
+    totCancels += r.cancelled_orders;
+    totClicks  += r.shopee_clicks;
+    totRev     += r.revenue_vnd;
+    totReduct  += r.reduct_vnd;
+    totCost    += r.cost_vnd;
+    totProfit  += r.profit_vnd;
 
-      tfoot.innerHTML = `
-        <tr>
-          <td>Tổng</td>
-          <td>${window.fmt.num(totOrders)}</td>
-          <td>${window.fmt.num(totCancelled)}</td>
-          <td>${window.fmt.num(totClicks)}</td>
-          <td>${window.fmt.vnd(totRevenue)}</td>
-          <td>${window.fmt.vnd(totReduct)}</td>
-          <td>${window.fmt.vnd(totCost)}</td>
-          <td class="${window.profitClass(totProfit)}">${window.fmt.vnd(totProfit)}</td>
-        </tr>
-      `;
+    return `<tr>
+      <td>${r.date.split('-').reverse().join('/')}</td>
+      <td class="text-r">${window.fmt.num(r.total_orders)}</td>
+      <td class="text-r">${window.fmt.num(r.shopee_clicks)}</td>
+      <td class="text-r">${window.fmt.vnd(r.revenue_vnd)}</td>
+      <td class="text-r">${window.fmt.vnd(r.reduct_vnd)}</td>
+      <td class="text-r">${window.fmt.vnd(r.cost_vnd)}</td>
+      <td class="text-r ${window.profitClass(r.profit_vnd)}">${window.fmt.vnd(r.profit_vnd)}</td>
+    </tr>`;
+  }).join('');
 
-    } catch (err) {
-      el.innerHTML = `<div class="state-empty">Lỗi: ${err.message}</div>`;
-    }
-  };
-})();
+  tfoot.innerHTML = `<tr class="summary-row">
+    <td>TỔNG CỘNG</td>
+    <td class="text-r">${window.fmt.num(totOrders)}</td>
+    <td class="text-r">${window.fmt.num(totClicks)}</td>
+    <td class="text-r">${window.fmt.vnd(totRev)}</td>
+    <td class="text-r">${window.fmt.vnd(totReduct)}</td>
+    <td class="text-r">${window.fmt.vnd(totCost)}</td>
+    <td class="text-r ${window.profitClass(totProfit)}">${window.fmt.vnd(totProfit)}</td>
+  </tr>`;
+}
+
+window.registerTab('daily', loadDaily);

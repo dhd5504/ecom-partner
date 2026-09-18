@@ -1,134 +1,108 @@
-/* ================================================================
-   zone.js — Tab Zone: bảng theo zone alias
-   ================================================================ */
 'use strict';
+/* ── zone.js ── Zone sortable table ── */
 
-(function () {
-  let _data = [];
-  let _sortCol = 'cost_vnd';
-  let _sortAsc = false;
+let _zoneData = [], _zoneSort = { col: 'revenue_vnd', dir: -1 };
 
-  function renderTable(rows) {
-    if (!rows.length) {
-      document.getElementById('tab-zone').innerHTML = window.emptyHtml('Không có dữ liệu zone');
-      return;
-    }
+async function loadZone() {
+  const el = document.getElementById('zoneBody');
+  const grid = document.getElementById('zoneSummaryGrid');
+  document.getElementById('zoneLoading').classList.remove('hidden');
+  el.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--text-dim)"><i class="mdi mdi-loading mdi-spin"></i> Đang tải...</td></tr>';
 
-    const sum = rows.reduce((acc, r) => {
-      acc.impressions      += r.impressions;
-      acc.propeller_clicks += r.propeller_clicks;
-      acc.shopee_clicks    += r.shopee_clicks;
-      acc.total_orders     += r.total_orders;
-      acc.cancelled_orders += r.cancelled_orders;
-      acc.revenue_vnd      += r.revenue_vnd;
-      acc.reduct_vnd       += r.reduct_vnd;
-      acc.cost_vnd         += r.cost_vnd;
-      acc.profit_vnd       += r.profit_vnd;
-      return acc;
-    }, { impressions:0, propeller_clicks:0, shopee_clicks:0, total_orders:0,
-         cancelled_orders:0, revenue_vnd:0, reduct_vnd:0, cost_vnd:0, profit_vnd:0 });
+  try {
+    const data = await window.fetchApi('/api/zones?' + window.buildQuery());
+    document.getElementById('zoneLoading').classList.add('hidden');
+    if (!data) return;
+    _zoneData = data;
+    _renderZoneSummary(data, grid);
+    _renderZoneTable();
+  } catch (e) {
+    document.getElementById('zoneLoading').classList.add('hidden');
+    el.innerHTML = `<tr><td colspan="10" style="color:#f43f5e;padding:1rem">Lỗi: ${e.message}</td></tr>`;
+  }
+}
 
-    const cols = [
-      { key: 'zone_alias',       label: 'Zone', align: 'left' },
-      { key: 'impressions',      label: 'Impressions' },
-      { key: 'propeller_clicks', label: 'P.Clicks' },
-      { key: 'shopee_clicks',    label: 'S.Clicks' },
-      { key: 'total_orders',     label: 'Đơn' },
-      { key: 'cancelled_orders', label: 'Hủy' },
-      { key: 'revenue_vnd',      label: 'Revenue' },
-      { key: 'reduct_vnd',       label: 'Reduct' },
-      { key: 'cost_vnd',         label: 'Spent' },
-      { key: 'profit_vnd',       label: 'Profit' },
-      { key: 'roi_pct',          label: 'ROI' },
-      { key: 'cr_pct',           label: 'CR' },
-      { key: 'cpo_vnd',          label: 'CPO' },
-    ];
+function _renderZoneSummary(data, grid) {
+  let totRevenue = 0, totCost = 0, totProfit = 0, totOrders = 0, totClicks = 0, totReduct = 0;
+  data.forEach(r => {
+    totRevenue += r.revenue_vnd    || 0;
+    totCost    += r.cost_vnd       || 0;
+    totProfit  += r.profit_vnd     || 0;
+    totOrders  += r.total_orders   || 0;
+    totClicks  += r.shopee_clicks  || 0;
+    totReduct  += r.reduct_vnd     || 0;
+  });
+  const roi = totCost > 0 ? ((totRevenue - totCost - totReduct) / totCost * 100) : 0;
+  grid.innerHTML = [
+    ['Zones',   window.fmt.numHtml(data.length)],
+    ['S.Clicks', window.fmt.numHtml(totClicks)],
+    ['Đơn',     window.fmt.numHtml(totOrders)],
+    ['Revenue',  window.fmt.vndHtml(totRevenue)],
+    ['Reduct',   window.fmt.vndHtml(totReduct)],
+    ['Spent',    window.fmt.vndHtml(totCost)],
+    ['Profit',   window.fmt.vndHtml(totProfit)],
+    ['ROI',      window.fmt.pct(roi)],
+  ].map(([l,v]) => `<div class="camp-summary-card"><div class="csc-label">${l}</div><div class="csc-value">${v}</div></div>`).join('');
+}
 
-    const thHtml = cols.map(c => {
-      const cls = _sortCol === c.key ? (_sortAsc ? 'sort-asc' : 'sort-desc') : '';
-      return `<th class="${cls}" data-col="${c.key}">${c.label}</th>`;
-    }).join('');
+let _zonePage = 1;
+const _zonePerPage = 20;
 
-    const fmtCell = (key, row) => {
-      const v = row[key];
-      if (['revenue_vnd','reduct_vnd','cost_vnd','profit_vnd','cpo_vnd'].includes(key))
-        return `<span class="${key === 'profit_vnd' ? window.profitClass(v) : ''}">${window.fmt.vnd(v)}</span>`;
-      if (key === 'roi_pct') return `<span class="${window.profitClass(v)}">${window.fmt.pct(v)}</span>`;
-      if (key === 'cr_pct')  return window.fmt.pct(v);
-      if (['impressions','propeller_clicks','shopee_clicks','total_orders','cancelled_orders'].includes(key))
-        return window.fmt.num(v);
-      if (key === 'zone_alias') return v === '__unknown__' ? '<span class="text-muted">Không xác định</span>' : v;
-      return v ?? '—';
-    };
+function _renderZoneTable() {
+  const tbody = document.getElementById('zoneBody');
+  const pag = document.getElementById('zonePagination');
+  const sorted = [..._zoneData].sort((a, b) => _zoneSort.dir * ((a[_zoneSort.col] || 0) > (b[_zoneSort.col] || 0) ? 1 : -1));
 
-    const tbodyHtml = rows.map(r => `
-      <tr>
-        <td>${r.zone_alias === '__unknown__' ? '<span class="text-muted">Không xác định</span>' : r.zone_alias}</td>
-        ${cols.slice(1).map(c => `<td>${fmtCell(c.key, r)}</td>`).join('')}
-      </tr>
-    `).join('');
+  const totalPages = Math.ceil(sorted.length / _zonePerPage) || 1;
+  if (_zonePage > totalPages) _zonePage = totalPages;
+  const start = (_zonePage - 1) * _zonePerPage;
+  const pageData = sorted.slice(start, start + _zonePerPage);
 
-    const tfootHtml = `
-      <tr>
-        <td>Tổng</td>
-        <td>${window.fmt.num(sum.impressions)}</td>
-        <td>${window.fmt.num(sum.propeller_clicks)}</td>
-        <td>${window.fmt.num(sum.shopee_clicks)}</td>
-        <td>${window.fmt.num(sum.total_orders)}</td>
-        <td>${window.fmt.num(sum.cancelled_orders)}</td>
-        <td>${window.fmt.vnd(sum.revenue_vnd)}</td>
-        <td>${window.fmt.vnd(sum.reduct_vnd)}</td>
-        <td>${window.fmt.vnd(sum.cost_vnd)}</td>
-        <td class="${window.profitClass(sum.profit_vnd)}">${window.fmt.vnd(sum.profit_vnd)}</td>
-        <td></td><td></td><td></td>
-      </tr>
-    `;
+  tbody.innerHTML = pageData.map(r => {
+    const alias = r.zone_alias === '__unknown__' ? '<span style="color:var(--text-dim);font-style:italic">Không xác định</span>' : r.zone_alias;
+    const roi = r.cost_vnd > 0 ? ((r.revenue_vnd - r.cost_vnd - r.reduct_vnd) / r.cost_vnd * 100) : 0;
+    return `<tr>
+      <td>${alias}</td>
+      <td class="text-r">${window.fmt.num(r.impressions)}</td>
+      <td class="text-r">${window.fmt.num(r.shopee_clicks)}</td>
+      <td class="text-r">${window.fmt.num(r.total_orders)}</td>
+      <td class="text-r">${window.fmt.vnd(r.revenue_vnd)}</td>
+      <td class="text-r">${window.fmt.vnd(r.reduct_vnd)}</td>
+      <td class="text-r">${window.fmt.vnd(r.cost_vnd)}</td>
+      <td class="text-r ${window.profitClass(r.profit_vnd)}">${window.fmt.vnd(r.profit_vnd)}</td>
+      <td class="text-r ${window.profitClass(roi)}">${window.fmt.pct(roi)}</td>
+    </tr>`;
+  }).join('');
 
-    document.getElementById('tab-zone').innerHTML = `
-      <div class="table-wrap">
-        <div class="table-title">Zone Report</div>
-        <div class="table-scroll">
-          <table>
-            <thead><tr>${thHtml}</tr></thead>
-            <tbody>${tbodyHtml}</tbody>
-            <tfoot>${tfootHtml}</tfoot>
-          </table>
-        </div>
+  pag.innerHTML = `
+    <div class="pagination">
+      <span class="page-info">Trang <strong>${_zonePage} / ${totalPages}</strong></span>
+      <div style="display:flex;gap:0.5rem">
+        <button class="btn-page" id="z-prev" ${_zonePage <= 1 ? 'disabled' : ''}><i class="mdi mdi-chevron-left"></i> Trước</button>
+        <button class="btn-page" id="z-next" ${_zonePage >= totalPages ? 'disabled' : ''}>Sau <i class="mdi mdi-chevron-right"></i></button>
       </div>
-    `;
+    </div>
+  `;
 
-    document.querySelectorAll('#tab-zone thead th').forEach(th => {
-      th.addEventListener('click', () => {
-        const col = th.dataset.col;
-        if (_sortCol === col) _sortAsc = !_sortAsc;
-        else { _sortCol = col; _sortAsc = false; }
-        sortAndRender();
-      });
-    });
+  if (_zonePage > 1) {
+    document.getElementById('z-prev').onclick = () => { _zonePage--; _renderZoneTable(); };
   }
-
-  function sortAndRender() {
-    const sorted = [..._data].sort((a, b) => {
-      const va = a[_sortCol] ?? -Infinity;
-      const vb = b[_sortCol] ?? -Infinity;
-      if (typeof va === 'string') return _sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
-      return _sortAsc ? va - vb : vb - va;
-    });
-    renderTable(sorted);
+  if (_zonePage < totalPages) {
+    document.getElementById('z-next').onclick = () => { _zonePage++; _renderZoneTable(); };
   }
+}
 
-  window.loadZone = async function () {
-    document.getElementById('tab-zone').innerHTML = window.loadingHtml();
-    try {
-      const data = await window.fetchApi('/api/zones?' + window.buildQuery());
-      if (!data) return;
-      _data = data;
-      _sortCol = 'cost_vnd';
-      _sortAsc = false;
-      sortAndRender();
-    } catch (err) {
-      document.getElementById('tab-zone').innerHTML =
-        `<div class="state-empty">Lỗi: ${err.message}</div>`;
-    }
-  };
-})();
+document.querySelectorAll('#zoneTable th.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.sort;
+    if (_zoneSort.col === col) { _zoneSort.dir *= -1; }
+    else { _zoneSort.col = col; _zoneSort.dir = -1; }
+    document.querySelectorAll('#zoneTable th.sortable').forEach(h => h.classList.remove('active'));
+    th.classList.add('active');
+    th.querySelector('i').className = _zoneSort.dir === -1 ? 'mdi mdi-sort-descending' : 'mdi mdi-sort-ascending';
+    _zonePage = 1;
+    _renderZoneTable();
+  });
+});
+
+window.registerTab('zone', loadZone);

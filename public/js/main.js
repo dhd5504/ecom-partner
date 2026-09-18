@@ -1,156 +1,200 @@
-/* ================================================================
-   main.js — Controller chính: auth check, filter, tabs, helpers
-   ================================================================ */
-
 'use strict';
 
-// ── Globals ─────────────────────────────────────────────────────
+/* ================================================================
+   main.js — Auth, filter, routing, shared helpers
+   ================================================================ */
+
+/* ── Format helpers ─────────────────────────────────────────────── */
+window.fmt = {
+  vnd: (v) => {
+    const n = Number(v) || 0;
+    return n.toLocaleString('vi-VN') + ' đ';
+  },
+  vndShort: (v) => {
+    const n = Number(v) || 0;
+    if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(1) + 'B đ';
+    if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + 'M đ';
+    if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(0) + 'K đ';
+    return n.toLocaleString('vi-VN') + ' đ';
+  },
+  vndHtml: (v) => {
+    const n = Number(v) || 0;
+    let short = n.toLocaleString('vi-VN');
+    if (Math.abs(n) >= 1e9) short = (n / 1e9).toFixed(1).replace(/\.0$/, '') + 'B';
+    else if (Math.abs(n) >= 1e6) short = (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+    else if (Math.abs(n) >= 1e3) short = (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+    return `<span title="${n.toLocaleString('vi-VN')} đ">${short}</span>`;
+  },
+  numHtml: (v) => {
+    const n = Number(v) || 0;
+    let short = n.toLocaleString('vi-VN');
+    if (Math.abs(n) >= 1e6) short = (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+    else if (Math.abs(n) >= 1e3) short = (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+    return `<span title="${n.toLocaleString('vi-VN')}">${short}</span>`;
+  },
+  num: (v) => Number(v || 0).toLocaleString('vi-VN'),
+  pct: (v) => (Number(v) || 0).toFixed(2) + '%',
+};
+
+window.profitClass = (v) => Number(v) >= 0 ? 'text-green' : 'text-red';
+
+window.loadingHtml = () => '<div style="padding:3rem;text-align:center;color:var(--text-dim)"><i class="mdi mdi-loading mdi-spin" style="font-size:2rem"></i></div>';
+window.emptyHtml   = () => '<div style="padding:3rem;text-align:center;color:var(--text-dim)">Không có dữ liệu.</div>';
+
+/* ── API helper ─────────────────────────────────────────────────── */
+window.fetchApi = async (url) => {
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (res.status === 401) { location.href = '/login.html'; return null; }
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Server error');
+    return json.data ?? json;
+  } catch (err) {
+    console.error('[fetchApi]', url, err);
+    throw err;
+  }
+};
+
+/* ── App state ──────────────────────────────────────────────────── */
 window.App = {
   dateFrom: '',
-  dateTo: '',
-  campaignId: '',
-  activeTab: 'overview',
+  dateTo:   '',
+  campaign: '',
 };
 
-// ── Format helpers ───────────────────────────────────────────────
-window.fmt = {
-  /** 1234567 → "1.234.567 đ" */
-  vnd(n) {
-    if (n === null || n === undefined) return '—';
-    const v = Math.round(Number(n));
-    return v.toLocaleString('vi-VN') + ' đ';
-  },
-  /** 12.345 → "12.35%" */
-  pct(n, decimals = 2) {
-    if (n === null || n === undefined) return '—';
-    return Number(n).toFixed(decimals) + '%';
-  },
-  /** 1234567 → "1,234,567" */
-  num(n) {
-    if (n === null || n === undefined) return '—';
-    return Number(n).toLocaleString('en-US');
-  },
-  /** Rút gọn VND: 1_500_000 → "1.5M đ" */
-  vndShort(n) {
-    if (n === null || n === undefined) return '—';
-    const v = Number(n);
-    if (Math.abs(v) >= 1e9) return (v / 1e9).toFixed(1) + 'B đ';
-    if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(1) + 'M đ';
-    if (Math.abs(v) >= 1e3) return (v / 1e3).toFixed(0) + 'K đ';
-    return v.toFixed(0) + ' đ';
-  },
-};
-
-// ── API helper ───────────────────────────────────────────────────
-window.fetchApi = async function fetchApi(path) {
-  const res = await fetch(path, { credentials: 'include' });
-  if (res.status === 401) { location.href = '/login.html'; return null; }
-  const json = await res.json();
-  if (json.status === 'error') throw new Error(json.message || 'API error');
-  return json.data;
-};
-
-// ── Build query string ───────────────────────────────────────────
-window.buildQuery = function buildQuery(extra = {}) {
-  const p = new URLSearchParams({
-    date_from: window.App.dateFrom,
-    date_to: window.App.dateTo,
-  });
-  if (window.App.campaignId) p.set('campaign_id', window.App.campaignId);
-  Object.entries(extra).forEach(([k, v]) => v !== undefined && p.set(k, v));
+window.buildQuery = () => {
+  const p = new URLSearchParams({ date_from: App.dateFrom, date_to: App.dateTo });
+  if (App.campaign) p.set('campaign_id', App.campaign);
   return p.toString();
 };
 
-// ── Loading / empty helpers ──────────────────────────────────────
-window.loadingHtml = () =>
-  `<div class="state-loading"><div class="spinner"></div><br/>Đang tải...</div>`;
-window.emptyHtml = (msg = 'Không có dữ liệu') =>
-  `<div class="state-empty">${msg}</div>`;
+/* ── Tab routing ────────────────────────────────────────────────── */
+const TAB_TITLES = {
+  overview: 'Tổng quan',
+  campaign: 'Campaign Report',
+  zone:     'Zone Report',
+  daily:    'Xu hướng',
+};
+const TAB_LOADERS = {};
 
-// ── Color helpers for profit/roi ─────────────────────────────────
-window.profitClass = (n) => (n > 0 ? 'text-green' : n < 0 ? 'text-red' : '');
-window.profitKpiClass = (n) => (n > 0 ? 'positive' : n < 0 ? 'negative' : 'neutral');
+window.registerTab = (id, fn) => { TAB_LOADERS[id] = fn; };
 
-// ── Date defaults ────────────────────────────────────────────────
-function isoDate(d) { return d.toISOString().slice(0, 10); }
-function initDates() {
-  const today = new Date();
-  const from7 = new Date(today);
-  from7.setDate(today.getDate() - 6);
-  window.App.dateFrom = isoDate(from7);
-  window.App.dateTo = isoDate(today);
-  document.getElementById('date-from').value = window.App.dateFrom;
-  document.getElementById('date-to').value = window.App.dateTo;
+function activateTab(id) {
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === id);
+  });
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.classList.toggle('active', el.id === 'tab-' + id);
+  });
+  document.getElementById('pageTitle').textContent = TAB_TITLES[id] || id;
+  if (TAB_LOADERS[id]) TAB_LOADERS[id]();
 }
 
-// ── Campaign filter dropdown ─────────────────────────────────────
-async function loadCampaignList() {
+/* ── Theme toggle ───────────────────────────────────────────────── */
+function initTheme() {
+  const saved = localStorage.getItem('partner_theme') || 'light';
+  if (saved === 'dark') document.body.classList.add('dark-theme');
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const isDark = document.body.classList.toggle('dark-theme');
+    localStorage.setItem('partner_theme', isDark ? 'dark' : 'light');
+    document.getElementById('themeToggle').querySelector('i').className =
+      isDark ? 'mdi mdi-weather-sunny' : 'mdi mdi-weather-night';
+  });
+  if (saved === 'dark') {
+    document.getElementById('themeToggle').querySelector('i').className = 'mdi mdi-weather-sunny';
+  }
+}
+
+/* ── DateRangePicker ────────────────────────────────────────────── */
+function initDatePicker() {
+  const today = moment();
+  const defaultFrom = moment().subtract(7, 'days');
+
+  App.dateFrom = defaultFrom.format('YYYY-MM-DD');
+  App.dateTo   = today.format('YYYY-MM-DD');
+
+  $('#reportrange').daterangepicker({
+    startDate: defaultFrom,
+    endDate:   today,
+    maxDate:   today,
+    autoApply: true,
+    locale: {
+      format: 'DD/MM/YYYY',
+      applyLabel: 'Áp dụng',
+      cancelLabel: 'Hủy',
+      fromLabel: 'Từ',
+      toLabel: 'Đến',
+      customRangeLabel: 'Tùy chọn',
+      daysOfWeek: ['CN','T2','T3','T4','T5','T6','T7'],
+      monthNames: ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'],
+      firstDay: 1,
+    },
+    ranges: {
+      'Hôm nay':      [moment(), moment()],
+      'Hôm qua':      [moment().subtract(1,'days'), moment().subtract(1,'days')],
+      '7 ngày qua':   [moment().subtract(6,'days'), moment()],
+      '14 ngày qua':  [moment().subtract(13,'days'), moment()],
+      '30 ngày qua':  [moment().subtract(29,'days'), moment()],
+      'Tháng này':    [moment().startOf('month'), moment().endOf('month')],
+      'Tháng trước':  [moment().subtract(1,'month').startOf('month'), moment().subtract(1,'month').endOf('month')],
+    },
+  }, (start, end) => {
+    App.dateFrom = start.format('YYYY-MM-DD');
+    App.dateTo   = end.format('YYYY-MM-DD');
+    $('.daterange-text').text(start.format('DD/MM/YYYY') + ' - ' + end.format('DD/MM/YYYY'));
+    
+    // Auto-apply
+    const active = document.querySelector('.nav-item.active')?.dataset.tab || 'overview';
+    activateTab(active);
+  });
+
+  $('.daterange-text').text(defaultFrom.format('DD/MM/YYYY') + ' - ' + today.format('DD/MM/YYYY'));
+}
+
+/* ── Campaign dropdown ──────────────────────────────────────────── */
+async function loadCampaigns() {
   try {
-    const data = await window.fetchApi(
-      `/api/campaigns/list?date_from=${window.App.dateFrom}&date_to=${window.App.dateTo}`
-    );
+    const data = await window.fetchApi('/api/campaigns/list');
     if (!data) return;
-    const sel = document.getElementById('campaign-filter');
-    // keep first "Tất cả" option
-    while (sel.options.length > 1) sel.remove(1);
-    data.forEach((c) => {
+    const sel = document.getElementById('campaignSelect');
+    data.forEach(c => {
       const opt = document.createElement('option');
       opt.value = c.campaign_id;
-      opt.textContent = c.campaign_name || c.campaign_id;
+      opt.textContent = c.campaign_id;
       sel.appendChild(opt);
     });
-  } catch (_) { /* ignore */ }
+  } catch (_) {}
 }
 
-// ── Tab routing ──────────────────────────────────────────────────
-const TAB_LOADERS = {
-  overview: () => typeof loadOverview === 'function' && loadOverview(),
-  campaign: () => typeof loadCampaign === 'function' && loadCampaign(),
-  zone:     () => typeof loadZone     === 'function' && loadZone(),
-  daily:    () => typeof loadDaily    === 'function' && loadDaily(),
-};
-
-function activateTab(name) {
-  window.App.activeTab = name;
-  document.querySelectorAll('.tab-btn').forEach((b) =>
-    b.classList.toggle('active', b.dataset.tab === name)
-  );
-  document.querySelectorAll('.tab-content').forEach((el) =>
-    el.classList.toggle('active', el.id === `tab-${name}`)
-  );
-  TAB_LOADERS[name]?.();
-}
-
-// ── Apply filter ─────────────────────────────────────────────────
-function applyFilter() {
-  window.App.dateFrom = document.getElementById('date-from').value;
-  window.App.dateTo = document.getElementById('date-to').value;
-  window.App.campaignId = document.getElementById('campaign-filter').value;
-  loadCampaignList();
-  TAB_LOADERS[window.App.activeTab]?.();
-}
-
-// ── Auth check + init ────────────────────────────────────────────
+/* ── Init ───────────────────────────────────────────────────────── */
 async function init() {
   try {
-    const res = await fetch('/api/auth/check', { credentials: 'include' });
+    const res  = await fetch('/api/auth/check', { credentials: 'include' });
     const json = await res.json();
-    if (!json.authenticated) { location.href = '/login.html'; return; }
+    if (!json.data?.authenticated) { location.href = '/login.html'; return; }
   } catch (_) { location.href = '/login.html'; return; }
 
-  initDates();
-  await loadCampaignList();
+  initTheme();
+  initDatePicker();
+  await loadCampaigns();
 
-  // Tab buttons
-  document.querySelectorAll('.tab-btn').forEach((btn) =>
-    btn.addEventListener('click', () => activateTab(btn.dataset.tab))
-  );
+  // Tab nav
+  document.querySelectorAll('.nav-item[data-tab]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      activateTab(el.dataset.tab);
+    });
+  });
 
-  // Filter apply
-  document.getElementById('btn-apply').addEventListener('click', applyFilter);
+  // Auto-apply filter on change
+  document.getElementById('campaignSelect').addEventListener('change', () => {
+    App.campaign = document.getElementById('campaignSelect').value;
+    const active = document.querySelector('.nav-item.active')?.dataset.tab || 'overview';
+    activateTab(active);
+  });
 
   // Logout
-  document.getElementById('btn-logout').addEventListener('click', async () => {
+  document.getElementById('btnLogout').addEventListener('click', async () => {
     await fetch('/api/logout', { method: 'POST', credentials: 'include' });
     location.href = '/login.html';
   });
@@ -159,4 +203,4 @@ async function init() {
   activateTab('overview');
 }
 
-document.addEventListener('DOMContentLoaded', init);
+init();

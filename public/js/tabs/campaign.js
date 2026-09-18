@@ -1,135 +1,107 @@
-/* ================================================================
-   campaign.js — Tab Campaign: bảng theo campaign
-   ================================================================ */
 'use strict';
+/* ── campaign.js ── Campaign sortable table ── */
 
-(function () {
-  let _data = [];
-  let _sortCol = 'cost_vnd';
-  let _sortAsc = false;
+let _campData = [], _campSort = { col: 'revenue_vnd', dir: -1 };
 
-  function renderTable(rows) {
-    if (!rows.length) {
-      document.getElementById('tab-campaign').innerHTML = window.emptyHtml('Không có dữ liệu campaign');
-      return;
-    }
+async function loadCampaign() {
+  const el = document.getElementById('campBody');
+  const grid = document.getElementById('campSummaryGrid');
+  document.getElementById('campLoading').classList.remove('hidden');
+  el.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--text-dim)"><i class="mdi mdi-loading mdi-spin"></i> Đang tải...</td></tr>';
 
-    // Tính summary
-    const sum = rows.reduce((acc, r) => {
-      acc.impressions      += r.impressions;
-      acc.propeller_clicks += r.propeller_clicks;
-      acc.shopee_clicks    += r.shopee_clicks;
-      acc.total_orders     += r.total_orders;
-      acc.cancelled_orders += r.cancelled_orders;
-      acc.revenue_vnd      += r.revenue_vnd;
-      acc.reduct_vnd       += r.reduct_vnd;
-      acc.cost_vnd         += r.cost_vnd;
-      acc.profit_vnd       += r.profit_vnd;
-      return acc;
-    }, { impressions:0, propeller_clicks:0, shopee_clicks:0, total_orders:0,
-         cancelled_orders:0, revenue_vnd:0, reduct_vnd:0, cost_vnd:0, profit_vnd:0 });
+  try {
+    const data = await window.fetchApi('/api/campaigns?' + window.buildQuery());
+    document.getElementById('campLoading').classList.add('hidden');
+    if (!data) return;
+    _campData = data;
+    _renderCampaignSummary(data, grid);
+    _renderCampaignTable();
+  } catch (e) {
+    document.getElementById('campLoading').classList.add('hidden');
+    el.innerHTML = `<tr><td colspan="10" style="color:#f43f5e;padding:1rem">Lỗi: ${e.message}</td></tr>`;
+  }
+}
 
-    const cols = [
-      { key: 'campaign_name', label: 'Campaign', align: 'left' },
-      { key: 'impressions',      label: 'Impressions' },
-      { key: 'propeller_clicks', label: 'P.Clicks' },
-      { key: 'shopee_clicks',    label: 'S.Clicks' },
-      { key: 'total_orders',     label: 'Đơn' },
-      { key: 'cancelled_orders', label: 'Hủy' },
-      { key: 'revenue_vnd',      label: 'Revenue' },
-      { key: 'reduct_vnd',       label: 'Reduct' },
-      { key: 'cost_vnd',         label: 'Spent' },
-      { key: 'profit_vnd',       label: 'Profit' },
-      { key: 'roi_pct',          label: 'ROI' },
-      { key: 'cr_pct',           label: 'CR' },
-      { key: 'cpo_vnd',          label: 'CPO' },
-    ];
+function _renderCampaignSummary(data, grid) {
+  let totRevenue = 0, totCost = 0, totProfit = 0, totOrders = 0, totClicks = 0, totReduct = 0;
+  data.forEach(r => {
+    totRevenue += r.revenue_vnd || 0;
+    totCost    += r.cost_vnd    || 0;
+    totProfit  += r.profit_vnd  || 0;
+    totOrders  += r.total_orders|| 0;
+    totClicks  += r.shopee_clicks|| 0;
+    totReduct  += r.reduct_vnd  || 0;
+  });
+  const roi = totCost > 0 ? ((totRevenue - totCost - totReduct) / totCost * 100) : 0;
+  grid.innerHTML = [
+    ['S.Clicks', window.fmt.numHtml(totClicks)],
+    ['Đơn',     window.fmt.numHtml(totOrders)],
+    ['Revenue',  window.fmt.vndHtml(totRevenue)],
+    ['Reduct',   window.fmt.vndHtml(totReduct)],
+    ['Spent',    window.fmt.vndHtml(totCost)],
+    ['Profit',   window.fmt.vndHtml(totProfit)],
+    ['ROI',      window.fmt.pct(roi)],
+  ].map(([l,v]) => `<div class="camp-summary-card"><div class="csc-label">${l}</div><div class="csc-value">${v}</div></div>`).join('');
+}
 
-    const thHtml = cols.map(c => {
-      const cls = _sortCol === c.key ? (_sortAsc ? 'sort-asc' : 'sort-desc') : '';
-      return `<th class="${cls}" data-col="${c.key}">${c.label}</th>`;
-    }).join('');
+let _campPage = 1;
+const _campPerPage = 20;
 
-    const fmtCell = (key, row) => {
-      const v = row[key];
-      if (['revenue_vnd','reduct_vnd','cost_vnd','profit_vnd','cpo_vnd'].includes(key))
-        return `<span class="${key === 'profit_vnd' ? window.profitClass(v) : ''}">${window.fmt.vnd(v)}</span>`;
-      if (key === 'roi_pct') return `<span class="${window.profitClass(v)}">${window.fmt.pct(v)}</span>`;
-      if (key === 'cr_pct')  return window.fmt.pct(v);
-      if (['impressions','propeller_clicks','shopee_clicks','total_orders','cancelled_orders'].includes(key))
-        return window.fmt.num(v);
-      return v ?? '—';
-    };
+function _renderCampaignTable() {
+  const tbody = document.getElementById('campBody');
+  const pag = document.getElementById('campPagination');
+  const sorted = [..._campData].sort((a, b) => _campSort.dir * ((a[_campSort.col] || 0) > (b[_campSort.col] || 0) ? 1 : -1));
 
-    const tbodyHtml = rows.map(r => `
-      <tr>
-        <td>${r.campaign_name || r.campaign_id}</td>
-        ${cols.slice(1).map(c => `<td>${fmtCell(c.key, r)}</td>`).join('')}
-      </tr>
-    `).join('');
+  const totalPages = Math.ceil(sorted.length / _campPerPage) || 1;
+  if (_campPage > totalPages) _campPage = totalPages;
+  const start = (_campPage - 1) * _campPerPage;
+  const pageData = sorted.slice(start, start + _campPerPage);
 
-    const tfootHtml = `
-      <tr>
-        <td>Tổng</td>
-        <td>${window.fmt.num(sum.impressions)}</td>
-        <td>${window.fmt.num(sum.propeller_clicks)}</td>
-        <td>${window.fmt.num(sum.shopee_clicks)}</td>
-        <td>${window.fmt.num(sum.total_orders)}</td>
-        <td>${window.fmt.num(sum.cancelled_orders)}</td>
-        <td>${window.fmt.vnd(sum.revenue_vnd)}</td>
-        <td>${window.fmt.vnd(sum.reduct_vnd)}</td>
-        <td>${window.fmt.vnd(sum.cost_vnd)}</td>
-        <td class="${window.profitClass(sum.profit_vnd)}">${window.fmt.vnd(sum.profit_vnd)}</td>
-        <td></td><td></td><td></td>
-      </tr>
-    `;
+  tbody.innerHTML = pageData.map(r => {
+    const roi = r.cost_vnd > 0 ? ((r.revenue_vnd - r.cost_vnd - r.reduct_vnd) / r.cost_vnd * 100) : 0;
+    return `<tr>
+      <td>${r.campaign_id}</td>
+      <td class="text-r">${window.fmt.num(r.impressions)}</td>
+      <td class="text-r">${window.fmt.num(r.shopee_clicks)}</td>
+      <td class="text-r">${window.fmt.num(r.total_orders)}</td>
+      <td class="text-r">${window.fmt.vnd(r.revenue_vnd)}</td>
+      <td class="text-r">${window.fmt.vnd(r.reduct_vnd)}</td>
+      <td class="text-r">${window.fmt.vnd(r.cost_vnd)}</td>
+      <td class="text-r ${window.profitClass(r.profit_vnd)}">${window.fmt.vnd(r.profit_vnd)}</td>
+      <td class="text-r ${window.profitClass(roi)}">${window.fmt.pct(roi)}</td>
+    </tr>`;
+  }).join('');
 
-    document.getElementById('tab-campaign').innerHTML = `
-      <div class="table-wrap">
-        <div class="table-title">Campaign Report</div>
-        <div class="table-scroll">
-          <table>
-            <thead><tr>${thHtml}</tr></thead>
-            <tbody>${tbodyHtml}</tbody>
-            <tfoot>${tfootHtml}</tfoot>
-          </table>
-        </div>
+  pag.innerHTML = `
+    <div class="pagination">
+      <span class="page-info">Trang <strong>${_campPage} / ${totalPages}</strong></span>
+      <div style="display:flex;gap:0.5rem">
+        <button class="btn-page" id="c-prev" ${_campPage <= 1 ? 'disabled' : ''}><i class="mdi mdi-chevron-left"></i> Trước</button>
+        <button class="btn-page" id="c-next" ${_campPage >= totalPages ? 'disabled' : ''}>Sau <i class="mdi mdi-chevron-right"></i></button>
       </div>
-    `;
+    </div>
+  `;
 
-    // Sort on header click
-    document.querySelectorAll('#tab-campaign thead th').forEach(th => {
-      th.addEventListener('click', () => {
-        const col = th.dataset.col;
-        if (_sortCol === col) _sortAsc = !_sortAsc;
-        else { _sortCol = col; _sortAsc = false; }
-        sortAndRender();
-      });
-    });
+  if (_campPage > 1) {
+    document.getElementById('c-prev').onclick = () => { _campPage--; _renderCampaignTable(); };
   }
-
-  function sortAndRender() {
-    const sorted = [..._data].sort((a, b) => {
-      const va = a[_sortCol] ?? -Infinity;
-      const vb = b[_sortCol] ?? -Infinity;
-      if (typeof va === 'string') return _sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
-      return _sortAsc ? va - vb : vb - va;
-    });
-    renderTable(sorted);
+  if (_campPage < totalPages) {
+    document.getElementById('c-next').onclick = () => { _campPage++; _renderCampaignTable(); };
   }
+}
 
-  window.loadCampaign = async function () {
-    document.getElementById('tab-campaign').innerHTML = window.loadingHtml();
-    try {
-      const data = await window.fetchApi('/api/campaigns?' + window.buildQuery());
-      if (!data) return;
-      _data = data;
-      _sortCol = 'cost_vnd';
-      _sortAsc = false;
-      sortAndRender();
-    } catch (err) {
-      document.getElementById('tab-campaign').innerHTML =
-        `<div class="state-empty">Lỗi: ${err.message}</div>`;
-    }
-  };
-})();
+// Sortable headers
+document.querySelectorAll('#campTable th.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.sort;
+    if (_campSort.col === col) { _campSort.dir *= -1; }
+    else { _campSort.col = col; _campSort.dir = -1; }
+    document.querySelectorAll('#campTable th.sortable').forEach(h => h.classList.remove('active'));
+    th.classList.add('active');
+    th.querySelector('i').className = _campSort.dir === -1 ? 'mdi mdi-sort-descending' : 'mdi mdi-sort-ascending';
+    _campPage = 1;
+    _renderCampaignTable();
+  });
+});
+
+window.registerTab('campaign', loadCampaign);

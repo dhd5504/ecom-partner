@@ -1,72 +1,303 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Partner Dashboard</title>
-  <link rel="stylesheet" href="/css/style.css" />
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.2.96/css/materialdesignicons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+<div class="app-layout">
 
-<!-- Header -->
-<header class="header">
-  <div class="header-brand">📊 Partner Dashboard</div>
-  <button class="btn-logout" id="btn-logout">Đăng xuất</button>
-</header>
-
-<!-- Main -->
-<main class="container">
-
-  <!-- Filter bar -->
-  <div class="filter-bar">
-    <div class="filter-group">
-      <label>Từ ngày</label>
-      <input type="date" id="date-from" />
+  <!-- Sidebar -->
+  <aside class="sidebar glass-panel">
+    <div class="sidebar-logo">
+      <i class="mdi mdi-chart-areaspline"></i>
+      <span>Partner<br><strong>Dashboard</strong></span>
     </div>
-    <div class="filter-group">
-      <label>Đến ngày</label>
-      <input type="date" id="date-to" />
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-tab="overview">
+        <i class="mdi mdi-view-dashboard"></i> Tổng quan
+      </a>
+      <a href="#" class="nav-item" data-tab="campaign">
+        <i class="mdi mdi-chart-bar"></i> Campaign
+      </a>
+      <a href="#" class="nav-item" data-tab="zone">
+        <i class="mdi mdi-layers-outline"></i> Zone
+      </a>
+      <a href="#" class="nav-item" data-tab="daily">
+        <i class="mdi mdi-calendar-today"></i> Xu hướng
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="status-info">
+        <span class="status-dot online"></span> Đang kết nối
+      </div>
+      <button class="btn-logout-side" id="btnLogout">
+        <i class="mdi mdi-logout"></i> Đăng xuất
+      </button>
     </div>
-    <div class="filter-group">
-      <label>Campaign</label>
-      <select id="campaign-filter">
-        <option value="">Tất cả</option>
-      </select>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main-content">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="page-title">
+        <h1 id="pageTitle">Tổng quan</h1>
+      </div>
+      <div class="topbar-actions">
+        <button id="themeToggle" class="btn-icon" title="Đổi giao diện">
+          <i class="mdi mdi-weather-night"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Filter bar -->
+    <div class="filter-bar glass-panel">
+      <div class="filters">
+        <div class="date-group">
+          <label>Thời gian</label>
+          <div class="daterange-wrap" id="reportrange">
+            <i class="mdi mdi-calendar-range"></i>
+            <span class="daterange-text"></span>
+            <i class="mdi mdi-chevron-down"></i>
+          </div>
+        </div>
+        <div class="date-group">
+          <label>Campaign</label>
+          <select id="campaignSelect" class="form-select">
+            <option value="">Tất cả Campaign</option>
+          </select>
+        </div>
+      </div>
     </div>
-    <button class="btn-apply" id="btn-apply">Áp dụng</button>
-  </div>
 
-  <!-- Tabs -->
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="overview">Tổng quan</button>
-    <button class="tab-btn" data-tab="campaign">Campaign</button>
-    <button class="tab-btn" data-tab="zone">Zone</button>
-    <button class="tab-btn" data-tab="daily">Xu hướng</button>
-  </div>
+    <!-- ── TAB: Tổng quan ── -->
+    <section id="tab-overview" class="tab-content active">
 
-  <!-- Tab: Overview -->
-  <div class="tab-content active" id="tab-overview"></div>
+      <!-- KPI Cards -->
+      <div class="metrics-grid">
+        <div class="metric-card glass-panel orange">
+          <div class="mc-icon"><i class="mdi mdi-cursor-default-click"></i></div>
+          <div class="mc-body"><p>Shopee Clicks</p><h2 id="m-clicks">—</h2></div>
+        </div>
+        <div class="metric-card glass-panel blue">
+          <div class="mc-icon"><i class="mdi mdi-eye"></i></div>
+          <div class="mc-body"><p>Impressions</p><h2 id="m-impressions">—</h2></div>
+        </div>
+        <div class="metric-card glass-panel green">
+          <div class="mc-icon"><i class="mdi mdi-cart-check"></i></div>
+          <div class="mc-body"><p>Tổng Đơn</p><h2 id="m-orders">—</h2></div>
+        </div>
+        <div class="metric-card glass-panel blue">
+          <div class="mc-icon"><i class="mdi mdi-percent"></i></div>
+          <div class="mc-body"><p>Conversion Rate</p><h2 id="m-cr">—</h2></div>
+        </div>
+        <div class="metric-card glass-panel purple">
+          <div class="mc-icon"><i class="mdi mdi-cash-multiple"></i></div>
+          <div class="mc-body"><p>Revenue (Shopee)</p><h2 id="m-revenue">—</h2></div>
+        </div>
+        <div class="metric-card glass-panel red">
+          <div class="mc-icon"><i class="mdi mdi-currency-usd-off"></i></div>
+          <div class="mc-body"><p>Spent (Propeller)</p><h2 id="m-cost">—</h2></div>
+        </div>
+        <div class="metric-card glass-panel teal">
+          <div class="mc-icon"><i class="mdi mdi-bank"></i></div>
+          <div class="mc-body"><p>Profit</p><h2 id="m-profit">—</h2></div>
+        </div>
+        <div class="metric-card glass-panel gold">
+          <div class="mc-icon"><i class="mdi mdi-trending-up"></i></div>
+          <div class="mc-body"><p>ROI</p><h2 id="m-roi">—</h2></div>
+        </div>
+        <div class="metric-card glass-panel red">
+          <div class="mc-icon"><i class="mdi mdi-undo-variant"></i></div>
+          <div class="mc-body"><p>Reduct</p><h2 id="m-reduct">—</h2></div>
+        </div>
+      </div>
 
-  <!-- Tab: Campaign -->
-  <div class="tab-content" id="tab-campaign"></div>
+      <!-- Daily Performance Chart -->
+      <div class="card glass-panel">
+        <div class="card-header">
+          <h3><i class="mdi mdi-chart-bar"></i> Performance theo ngày</h3>
+          <span id="ovChartLoading" class="loading-text hidden">Đang tải...</span>
+        </div>
+        <div class="chart-toggles">
+          <button class="chart-chip ov-chip" data-metric="0" style="--chip-color:#8b5cf6">
+            <span class="chip-dot"></span> Revenue
+          </button>
+          <button class="chart-chip ov-chip" data-metric="1" style="--chip-color:#f43f5e">
+            <span class="chip-dot"></span> Spent
+          </button>
+          <button class="chart-chip ov-chip" data-metric="2" style="--chip-color:#10b981">
+            <span class="chip-dot"></span> Profit
+          </button>
+          <button class="chart-chip active ov-chip" data-metric="3" style="--chip-color:#eab308">
+            <span class="chip-dot"></span> ROI (%)
+          </button>
+          <button class="chart-chip ov-chip" data-metric="4" style="--chip-color:#f97316">
+            <span class="chip-dot"></span> Orders
+          </button>
+          <button class="chart-chip ov-chip" data-metric="5" style="--chip-color:#ef4444">
+            <span class="chip-dot"></span> Reduct
+          </button>
+        </div>
+        <div style="position:relative; height:320px; padding: 0.5rem 0;">
+          <canvas id="ovDailyChart"></canvas>
+        </div>
+      </div>
 
-  <!-- Tab: Zone -->
-  <div class="tab-content" id="tab-zone"></div>
+      <!-- Pie charts: Revenue & Spent by Campaign -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+        <div class="card glass-panel">
+          <div class="card-header">
+            <h3><i class="mdi mdi-chart-pie"></i> Revenue by Campaign</h3>
+          </div>
+          <div style="position:relative; height:250px; padding:0.5rem 0;">
+            <canvas id="ovRevenuePie"></canvas>
+          </div>
+        </div>
+        <div class="card glass-panel">
+          <div class="card-header">
+            <h3><i class="mdi mdi-chart-donut"></i> Spent by Campaign</h3>
+          </div>
+          <div style="position:relative; height:250px; padding:0.5rem 0;">
+            <canvas id="ovCostPie"></canvas>
+          </div>
+        </div>
+      </div>
 
-  <!-- Tab: Daily -->
-  <div class="tab-content" id="tab-daily"></div>
+    </section>
 
-</main>
+    <!-- ── TAB: Campaign ── -->
+    <section id="tab-campaign" class="tab-content">
+      <div class="card glass-panel">
+        <div class="card-header">
+          <h3><i class="mdi mdi-chart-bar"></i> Campaign Report</h3>
+          <span id="campLoading" class="loading-text hidden">Đang tải...</span>
+        </div>
+        <div class="camp-summary-grid" id="campSummaryGrid"></div>
+        <div class="table-wrap">
+          <table id="campTable">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="campaign_id">Campaign <i class="mdi mdi-sort"></i></th>
+                <th class="text-r sortable" data-sort="impressions">Impression <i class="mdi mdi-sort"></i></th>
+                <th class="text-r sortable" data-sort="shopee_clicks">S.Clicks <i class="mdi mdi-sort"></i></th>
+                <th class="text-r sortable" data-sort="total_orders">Đơn <i class="mdi mdi-sort"></i></th>
+                <th class="text-r sortable active" data-sort="revenue_vnd">Revenue <i class="mdi mdi-sort-descending"></i></th>
+                <th class="text-r sortable" data-sort="reduct_vnd">Reduct <i class="mdi mdi-sort"></i></th>
+                <th class="text-r sortable" data-sort="cost_vnd">Spent <i class="mdi mdi-sort"></i></th>
+                <th class="text-r sortable" data-sort="profit_vnd">Profit <i class="mdi mdi-sort"></i></th>
+                <th class="text-r">ROI</th>
+              </tr>
+            </thead>
+            <tbody id="campBody"></tbody>
+          </table>
+        </div>
+        <div id="campPagination" style="padding: 1rem 1.5rem"></div>
+      </div>
+    </section>
 
-<!-- Chart.js CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<!-- Tab modules -->
+    <!-- ── TAB: Zone ── -->
+    <section id="tab-zone" class="tab-content">
+      <div class="card glass-panel">
+        <div class="card-header">
+          <h3><i class="mdi mdi-layers-outline"></i> Zone Report</h3>
+          <span id="zoneLoading" class="loading-text hidden">Đang tải...</span>
+        </div>
+        <div class="camp-summary-grid" id="zoneSummaryGrid"></div>
+        <div class="table-wrap">
+          <table id="zoneTable">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="zone_alias">Zone <i class="mdi mdi-sort"></i></th>
+                <th class="text-r sortable" data-sort="impressions">Impression <i class="mdi mdi-sort"></i></th>
+                <th class="text-r sortable" data-sort="shopee_clicks">S.Clicks <i class="mdi mdi-sort"></i></th>
+                <th class="text-r sortable" data-sort="total_orders">Đơn <i class="mdi mdi-sort"></i></th>
+                <th class="text-r sortable active" data-sort="revenue_vnd">Revenue <i class="mdi mdi-sort-descending"></i></th>
+                <th class="text-r sortable" data-sort="reduct_vnd">Reduct <i class="mdi mdi-sort"></i></th>
+                <th class="text-r sortable" data-sort="cost_vnd">Spent <i class="mdi mdi-sort"></i></th>
+                <th class="text-r sortable" data-sort="profit_vnd">Profit <i class="mdi mdi-sort"></i></th>
+                <th class="text-r">ROI</th>
+              </tr>
+            </thead>
+            <tbody id="zoneBody"></tbody>
+          </table>
+        </div>
+        <div id="zonePagination" style="padding: 1rem 1.5rem"></div>
+      </div>
+    </section>
+
+    <!-- ── TAB: Xu hướng ── -->
+    <section id="tab-daily" class="tab-content">
+      <div class="card glass-panel">
+        <div class="card-header">
+          <h3><i class="mdi mdi-chart-timeline-variant"></i> Xu hướng theo ngày</h3>
+          <span id="dailyLoading" class="loading-text hidden">Đang tải...</span>
+        </div>
+        <div class="chart-toggles">
+          <button class="chart-chip daily-chip" data-metric="0" style="--chip-color:#8b5cf6">
+            <span class="chip-dot"></span> Revenue
+          </button>
+          <button class="chart-chip daily-chip" data-metric="1" style="--chip-color:#f43f5e">
+            <span class="chip-dot"></span> Spent
+          </button>
+          <button class="chart-chip daily-chip" data-metric="2" style="--chip-color:#10b981">
+            <span class="chip-dot"></span> Profit
+          </button>
+          <button class="chart-chip active daily-chip" data-metric="3" style="--chip-color:#eab308">
+            <span class="chip-dot"></span> ROI (%)
+          </button>
+          <button class="chart-chip daily-chip" data-metric="4" style="--chip-color:#ef4444">
+            <span class="chip-dot"></span> Reduct
+          </button>
+        </div>
+        <div style="position:relative; height:320px; padding:0.5rem 0;">
+          <canvas id="dailyChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card glass-panel">
+        <div class="card-header">
+          <h3><i class="mdi mdi-table-large"></i> Chi tiết theo ngày</h3>
+        </div>
+        <div class="table-wrap">
+          <table id="dailyTable">
+            <thead>
+              <tr>
+                <th>Ngày</th>
+                <th class="text-r">Đơn</th>
+                <th class="text-r">S.Clicks</th>
+                <th class="text-r">Revenue</th>
+                <th class="text-r">Reduct</th>
+                <th class="text-r">Spent</th>
+                <th class="text-r">Profit</th>
+              </tr>
+            </thead>
+            <tbody id="dailyBody"></tbody>
+            <tfoot id="dailyFoot"></tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="/js/main.js"></script>
 <script src="/js/tabs/overview.js"></script>
 <script src="/js/tabs/campaign.js"></script>
 <script src="/js/tabs/zone.js"></script>
 <script src="/js/tabs/daily.js"></script>
-<!-- Main controller -->
-<script src="/js/main.js"></script>
-
 </body>
 </html>

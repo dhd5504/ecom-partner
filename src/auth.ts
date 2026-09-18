@@ -1,4 +1,4 @@
-﻿import session from 'express-session';
+import session from 'express-session';
 import { RequestHandler, Request, Response, NextFunction } from 'express';
 
 // Extend express-session to include our custom fields
