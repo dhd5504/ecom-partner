@@ -1,0 +1,17 @@
+# Environment
+.env
+*.env.local
+
+# Node
+node_modules/
+dist/
+npm-debug.log*
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

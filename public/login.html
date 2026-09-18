@@ -1,0 +1,203 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Partner Dashboard — Đăng nhập</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login-wrapper {
+      width: 100%;
+      max-width: 420px;
+      padding: 1rem;
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .logo-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      border-radius: 16px;
+      margin-bottom: 1rem;
+      font-size: 1.75rem;
+    }
+
+    .logo h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+
+    .logo p {
+      font-size: 0.875rem;
+      color: #94a3b8;
+      margin-top: 0.25rem;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 2rem;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: #94a3b8;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #f1f5f9;
+      font-size: 0.9375rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+    }
+
+    input::placeholder { color: #475569; }
+
+    .btn-login {
+      width: 100%;
+      padding: 0.8125rem 1rem;
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      margin-top: 0.5rem;
+    }
+
+    .btn-login:hover { opacity: 0.9; }
+    .btn-login:active { transform: scale(0.98); }
+    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .error-msg {
+      display: none;
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #fca5a5;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .error-msg.visible { display: block; }
+
+    .footer-note {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 0.75rem;
+      color: #475569;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-wrapper">
+    <div class="logo">
+      <div class="logo-icon">📊</div>
+      <h1>Partner Dashboard</h1>
+      <p>Hệ thống theo dõi hiệu quả Affiliate</p>
+    </div>
+
+    <div class="card">
+      <div class="error-msg" id="errorMsg">Tên đăng nhập hoặc mật khẩu không đúng.</div>
+
+      <form id="loginForm" autocomplete="off">
+        <div class="form-group">
+          <label for="username">Tên đăng nhập</label>
+          <input type="text" id="username" name="username" placeholder="Nhập username" autocomplete="username" required />
+        </div>
+        <div class="form-group">
+          <label for="password">Mật khẩu</label>
+          <input type="password" id="password" name="password" placeholder="Nhập mật khẩu" autocomplete="current-password" required />
+        </div>
+        <button type="submit" class="btn-login" id="loginBtn">Đăng nhập</button>
+      </form>
+    </div>
+
+    <div class="footer-note">Chỉ dành cho đối tác được ủy quyền</div>
+  </div>
+
+  <script>
+    const form = document.getElementById('loginForm');
+    const errorMsg = document.getElementById('errorMsg');
+    const loginBtn = document.getElementById('loginBtn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorMsg.classList.remove('visible');
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'Đang đăng nhập...';
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const json = await res.json();
+        if (res.ok && json.status === 'success') {
+          window.location.href = '/';
+        } else {
+          errorMsg.textContent = json.message ?? 'Đăng nhập thất bại.';
+          errorMsg.classList.add('visible');
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Đăng nhập';
+        }
+      } catch {
+        errorMsg.textContent = 'Lỗi kết nối. Vui lòng thử lại.';
+        errorMsg.classList.add('visible');
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Đăng nhập';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Partner Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-brand">📊 Partner Dashboard</div>
+  <button class="btn-logout" id="btn-logout">Đăng xuất</button>
+</header>
+
+<!-- Main -->
+<main class="container">
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>Từ ngày</label>
+      <input type="date" id="date-from" />
+    </div>
+    <div class="filter-group">
+      <label>Đến ngày</label>
+      <input type="date" id="date-to" />
+    </div>
+    <div class="filter-group">
+      <label>Campaign</label>
+      <select id="campaign-filter">
+        <option value="">Tất cả</option>
+      </select>
+    </div>
+    <button class="btn-apply" id="btn-apply">Áp dụng</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="overview">Tổng quan</button>
+    <button class="tab-btn" data-tab="campaign">Campaign</button>
+    <button class="tab-btn" data-tab="zone">Zone</button>
+    <button class="tab-btn" data-tab="daily">Xu hướng</button>
+  </div>
+
+  <!-- Tab: Overview -->
+  <div class="tab-content active" id="tab-overview"></div>
+
+  <!-- Tab: Campaign -->
+  <div class="tab-content" id="tab-campaign"></div>
+
+  <!-- Tab: Zone -->
+  <div class="tab-content" id="tab-zone"></div>
+
+  <!-- Tab: Daily -->
+  <div class="tab-content" id="tab-daily"></div>
+
+</main>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- Tab modules -->
+<script src="/js/tabs/overview.js"></script>
+<script src="/js/tabs/campaign.js"></script>
+<script src="/js/tabs/zone.js"></script>
+<script src="/js/tabs/daily.js"></script>
+<!-- Main controller -->
+<script src="/js/main.js"></script>
+
+</body>
+</html>
