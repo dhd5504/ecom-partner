@@ -45,7 +45,7 @@ window.emptyHtml   = () => '<div style="padding:3rem;text-align:center;color:var
 window.fetchApi = async (url) => {
   try {
     const res = await fetch(url, { credentials: 'include' });
-    if (res.status === 401) { location.href = '/login.html'; return null; }
+    if (res.status === 401) { location.href = '/login'; return null; }  // Fix: đúng route /login
     const json = await res.json();
     if (!res.ok) throw new Error(json.message || 'Server error');
     return json.data ?? json;
@@ -79,6 +79,10 @@ const TAB_LOADERS = {};
 
 window.registerTab = (id, fn) => { TAB_LOADERS[id] = fn; };
 
+// Debounce: chỉ load tab sau khi người dùng dừng click 300ms
+// Tránh bắn đồng thời hàng chục API calls khi click liên tiếp
+let _tabDebounceTimer = null;
+
 function activateTab(id) {
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.tab === id);
@@ -87,7 +91,12 @@ function activateTab(id) {
     el.classList.toggle('active', el.id === 'tab-' + id);
   });
   document.getElementById('pageTitle').textContent = TAB_TITLES[id] || id;
-  if (TAB_LOADERS[id]) TAB_LOADERS[id]();
+
+  // Debounce API calls — hủy request cũ nếu click liên tiếp trong 300ms
+  clearTimeout(_tabDebounceTimer);
+  _tabDebounceTimer = setTimeout(() => {
+    if (TAB_LOADERS[id]) TAB_LOADERS[id]();
+  }, 300);
 }
 
 /* ── Theme toggle ───────────────────────────────────────────────── */
@@ -171,8 +180,8 @@ async function init() {
   try {
     const res  = await fetch('/api/auth/check', { credentials: 'include' });
     const json = await res.json();
-    if (!json.data?.authenticated) { location.href = '/login.html'; return; }
-  } catch (_) { location.href = '/login.html'; return; }
+    if (!json.data?.authenticated) { location.href = '/login'; return; }  // Fix: đúng route /login
+  } catch (_) { location.href = '/login'; return; }
 
   initTheme();
   initDatePicker();
