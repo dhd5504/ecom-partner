@@ -49,8 +49,10 @@ app.use((_req, res): void => {
   res.status(404).json({ status: 'error', message: 'Not found' });
 });
 
-app.listen(PORT, () => {
-  console.log(`[partner-web] Server running on http://localhost:${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`[partner-web] Server running on http://localhost:${PORT}`);
+  });
+}
 
 export default app;
