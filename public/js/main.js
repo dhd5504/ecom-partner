@@ -42,10 +42,12 @@ window.loadingHtml = () => '<div style="padding:3rem;text-align:center;color:var
 window.emptyHtml   = () => '<div style="padding:3rem;text-align:center;color:var(--text-dim)">Không có dữ liệu.</div>';
 
 /* ── API helper ─────────────────────────────────────────────────── */
+// Basic Auth: browser tự gửi Authorization header mỗi request.
+// Nếu nhận 401, reload trang → browser hiện lại popup đăng nhập.
 window.fetchApi = async (url) => {
   try {
-    const res = await fetch(url, { credentials: 'include' });
-    if (res.status === 401) { location.href = '/login'; return null; }  // Fix: đúng route /login
+    const res = await fetch(url);
+    if (res.status === 401) { location.reload(); return null; }
     const json = await res.json();
     if (!res.ok) throw new Error(json.message || 'Server error');
     return json.data ?? json;
@@ -176,13 +178,9 @@ async function loadCampaigns() {
 }
 
 /* ── Init ───────────────────────────────────────────────────────── */
+// Basic Auth: nếu đã load được trang này thì đã authenticated rồi.
+// Không cần check auth riêng.
 async function init() {
-  try {
-    const res  = await fetch('/api/auth/check', { credentials: 'include' });
-    const json = await res.json();
-    if (!json.data?.authenticated) { location.href = '/login'; return; }  // Fix: đúng route /login
-  } catch (_) { location.href = '/login'; return; }
-
   initTheme();
   initDatePicker();
   await loadCampaigns();
@@ -202,10 +200,9 @@ async function init() {
     activateTab(active);
   });
 
-  // Logout
-  document.getElementById('btnLogout').addEventListener('click', async () => {
-    await fetch('/api/logout', { method: 'POST', credentials: 'include' });
-    location.href = '/login.html';
+  // Logout: reload trang → browser xóa cached credentials và hiện lại popup
+  document.getElementById('btnLogout').addEventListener('click', () => {
+    location.reload();
   });
 
   // Load default tab

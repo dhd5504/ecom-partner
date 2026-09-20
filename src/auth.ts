@@ -1,38 +1,18 @@
-import session from 'express-session';
-import { RequestHandler, Request, Response, NextFunction } from 'express';
+import basicAuth from 'express-basic-auth';
+import { RequestHandler } from 'express';
 
-// Extend express-session to include our custom fields
-declare module 'express-session' {
-  interface SessionData {
-    authenticated: boolean;
-  }
-}
+const user = process.env.AUTH_USER ?? 'admin';
+const pass = process.env.AUTH_PASS ?? '';
 
-export const sessionMiddleware: RequestHandler = session({
-  secret: process.env.SESSION_SECRET ?? 'fallback-secret-change-me',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 8 * 60 * 60 * 1000, // 8 hours
-  },
+/**
+ * HTTP Basic Auth middleware.
+ * Browser tự hiện popup login, không cần login.html hay session.
+ */
+export const requireAuth: RequestHandler = basicAuth({
+  users: { [user]: pass },
+  challenge: true,          // Trả về WWW-Authenticate header → browser hiện popup
+  realm: 'Partner Dashboard',
 });
 
-/** Protect page routes — redirect to /login if not authenticated */
-export const requireAuth: RequestHandler = (req: Request, res: Response, next: NextFunction): void => {
-  if (req.session.authenticated) {
-    next();
-  } else {
-    res.redirect('/login');
-  }
-};
-
-/** Protect API routes — return 401 JSON if not authenticated */
-export const requireAuthApi: RequestHandler = (req: Request, res: Response, next: NextFunction): void => {
-  if (req.session.authenticated) {
-    next();
-  } else {
-    res.status(401).json({ status: 'error', message: 'Unauthorized' });
-  }
-};
+// Alias dùng chung cho cả page routes và API routes
+export const requireAuthApi: RequestHandler = requireAuth;
