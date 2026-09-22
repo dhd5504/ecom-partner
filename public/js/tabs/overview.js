@@ -2,6 +2,7 @@
 /* ── overview.js ── KPI cards + daily bar chart + pie charts ── */
 
 let _ovChart = null, _ovRevPie = null, _ovCostPie = null;
+const _ovActiveSet = new Set([0, 1, 3]); // Default: 0=Revenue, 1=Spent (Cost), 3=ROI (%)
 const PIE_COLORS = ['#8b5cf6','#3b82f6','#10b981','#f97316','#f43f5e','#eab308','#14b8a6','#ec4899','#64748b'];
 
 const OV_DATASETS = [
@@ -50,16 +51,17 @@ async function loadOverview() {
     if (_ovChart) { _ovChart.destroy(); _ovChart = null; }
     const ctx = document.getElementById('ovDailyChart').getContext('2d');
 
-    const activeSet = new Set([0, 1, 2, 3]);
     document.querySelectorAll('.ov-chip').forEach(btn => {
+      const idx = +btn.dataset.metric;
+      btn.classList.toggle('active', _ovActiveSet.has(idx));
       // clear old event listeners if any
       const newBtn = btn.cloneNode(true);
       btn.parentNode.replaceChild(newBtn, btn);
       newBtn.addEventListener('click', () => {
-        const idx = +newBtn.dataset.metric;
-        newBtn.classList.toggle('active');
-        if (activeSet.has(idx)) activeSet.delete(idx); else activeSet.add(idx);
-        _ovChart.data.datasets.forEach((ds, i) => { ds.hidden = !activeSet.has(i); });
+        const i = +newBtn.dataset.metric;
+        if (_ovActiveSet.has(i)) _ovActiveSet.delete(i); else _ovActiveSet.add(i);
+        newBtn.classList.toggle('active', _ovActiveSet.has(i));
+        _ovChart.data.datasets.forEach((ds, dsIdx) => { ds.hidden = !_ovActiveSet.has(dsIdx); });
         _ovChart.update();
       });
     });
@@ -85,7 +87,7 @@ async function loadOverview() {
             tension: 0.3,
             borderDash: ds.borderDash,
             yAxisID: ds.yAxisID,
-            hidden: !activeSet.has(i)
+            hidden: !_ovActiveSet.has(i)
           };
         }),
       },

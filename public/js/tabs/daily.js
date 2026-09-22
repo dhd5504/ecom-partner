@@ -2,14 +2,13 @@
 /* ── daily.js ── Daily table + chart ── */
 
 let _dailyChart = null;
+const _dailyActiveSet = new Set([0, 1, 3]);
 
 const DAILY_DATASETS = [
   { label: 'Revenue',  key: 'revenue_vnd', color: '#8b5cf6', type: 'bar',  yAxisID: 'yLeft'  },
   { label: 'Spent',    key: 'cost_vnd',    color: '#f43f5e', type: 'bar',  yAxisID: 'yLeft'  },
   { label: 'Profit',   key: 'profit_vnd',  color: '#10b981', type: 'bar',  yAxisID: 'yLeft'  },
   { label: 'ROI (%)',  key: 'roi',         color: '#eab308', type: 'line', yAxisID: 'yRight' },
-  { label: 'Clicks',   key: 'shopee_clicks',color: '#f97316',type: 'line', yAxisID: 'yRight'},
-  { label: 'Orders',   key: 'total_orders',color: '#22c55e', type: 'line', yAxisID: 'yRight' },
   { label: 'Reduct',   key: 'reduct_vnd',  color: '#ef4444', type: 'line', yAxisID: 'yLeft', borderDash: [4,4] },
 ];
 
@@ -38,16 +37,17 @@ function _renderDailyChart(rows) {
   if (_dailyChart) { _dailyChart.destroy(); _dailyChart = null; }
   const ctx = document.getElementById('dailyChart').getContext('2d');
 
-  const activeSet = new Set([0, 1, 2, 3]);
   document.querySelectorAll('.daily-chip').forEach(btn => {
+    const idx = +btn.dataset.metric;
+    btn.classList.toggle('active', _dailyActiveSet.has(idx));
     // clear old event listeners
     const newBtn = btn.cloneNode(true);
     btn.parentNode.replaceChild(newBtn, btn);
     newBtn.addEventListener('click', () => {
-      const idx = +newBtn.dataset.metric;
-      newBtn.classList.toggle('active');
-      if (activeSet.has(idx)) activeSet.delete(idx); else activeSet.add(idx);
-      _dailyChart.data.datasets.forEach((ds, i) => { ds.hidden = !activeSet.has(i); });
+      const i = +newBtn.dataset.metric;
+      if (_dailyActiveSet.has(i)) _dailyActiveSet.delete(i); else _dailyActiveSet.add(i);
+      newBtn.classList.toggle('active', _dailyActiveSet.has(i));
+      _dailyChart.data.datasets.forEach((ds, dsIdx) => { ds.hidden = !_dailyActiveSet.has(dsIdx); });
       _dailyChart.update();
     });
   });
@@ -73,7 +73,7 @@ function _renderDailyChart(rows) {
           tension: 0.3,
           borderDash: ds.borderDash,
           yAxisID: ds.yAxisID,
-          hidden: !activeSet.has(i)
+          hidden: !_dailyActiveSet.has(i)
         };
       })
     },
