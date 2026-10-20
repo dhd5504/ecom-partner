@@ -47,7 +47,7 @@ function calcKpis(data: {
   total_orders: number;
   shopee_clicks: number;
 }): { profit_vnd: number; roi_pct: number | null; cr_pct: number | null; cpo_vnd: number | null } {
-  const profit_vnd = data.revenue_vnd - data.cost_vnd - data.reduct_vnd;
+  const profit_vnd = data.revenue_vnd - data.cost_vnd;
   const roi_pct = data.cost_vnd > 0 ? (profit_vnd / data.cost_vnd) * 100 : null;
   const cr_pct = data.shopee_clicks > 0 ? (data.total_orders / data.shopee_clicks) * 100 : null;
   const cpo_vnd = data.total_orders > 0 ? data.cost_vnd / data.total_orders : null;
@@ -221,7 +221,7 @@ router.get('/api/metrics/daily', async (req: Request, res: Response): Promise<vo
       const shopee_clicks = toNum(c?.shopee_clicks);
       const impressions = toNum(p?.impressions);
       const propeller_clicks = toNum(p?.propeller_clicks);
-      const profit_vnd = revenue_vnd - cost_vnd - reduct_vnd;
+      const profit_vnd = revenue_vnd - cost_vnd;
 
       return {
         date,
@@ -315,7 +315,7 @@ router.get('/api/campaigns', async (req: Request, res: Response): Promise<void> 
       const reduct_vnd = toNum(r.reduct_vnd);
       const total_orders = toNum(r.total_orders);
       const shopee_clicks = toNum(r.shopee_clicks);
-      const profit_vnd = revenue_vnd - cost_vnd - reduct_vnd;
+      const profit_vnd = revenue_vnd - cost_vnd;
       const roi_pct = cost_vnd > 0 ? (profit_vnd / cost_vnd) * 100 : null;
       const cr_pct = shopee_clicks > 0 ? (total_orders / shopee_clicks) * 100 : null;
       const cpo_vnd = total_orders > 0 ? cost_vnd / total_orders : null;
@@ -412,7 +412,7 @@ router.get('/api/zones', async (req: Request, res: Response): Promise<void> => {
       const reduct_vnd = toNum(r.reduct_vnd);
       const total_orders = toNum(r.total_orders);
       const shopee_clicks = toNum(r.shopee_clicks);
-      const profit_vnd = revenue_vnd - cost_vnd - reduct_vnd;
+      const profit_vnd = revenue_vnd - cost_vnd;
       const roi_pct = cost_vnd > 0 ? (profit_vnd / cost_vnd) * 100 : null;
       const cr_pct = shopee_clicks > 0 ? (total_orders / shopee_clicks) * 100 : null;
       const cpo_vnd = total_orders > 0 ? cost_vnd / total_orders : null;
